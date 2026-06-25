@@ -62,6 +62,7 @@ io.on("connection", (socket) => {
         
     });
 
+<<<<<<< HEAD
     socket.on(Actions.CODE_CHANGED,({code,roomId,fileId,user,position})=>{
         currentCodeForRooms[roomId] = code;
        socket.in(roomId).emit(Actions.CODE_CHANGED,{code,fileId,user,position});
@@ -98,6 +99,11 @@ io.on("connection", (socket) => {
 
     socket.on("reject-join", ({ requesterSocketId }) => {
        io.to(requesterSocketId).emit("join-rejected");
+=======
+    socket.on(Actions.CODE_CHANGED,({code,roomId,user,position})=>{
+        currentCodeForRooms[roomId] = code;
+       socket.in(roomId).emit(Actions.CODE_CHANGED,{code,user,position});
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
     })
   
 

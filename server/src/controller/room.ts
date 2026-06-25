@@ -28,7 +28,11 @@ export const createRoom =  asyncHandler(async(req:CustomRequest,res:Response)=>{
     return res.status(201).json(new ApiResponse(201,"Room created",{room:newRoom},true));
 })
 
+<<<<<<< HEAD
 export const getRoomById =  asyncHandler(async(req:CustomRequest,res:Response)=>{
+=======
+export const getRoomById =  asyncHandler(async(req:Request,res:Response)=>{
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
     const {roomId} = req.params;
     if(!roomId )
        throw new ApiError(400,"Room Id are required");
@@ -36,6 +40,7 @@ export const getRoomById =  asyncHandler(async(req:CustomRequest,res:Response)=>
     const room = await Room.findById(roomId);
     if(!room)
         throw new ApiError(404,"Room not found");
+<<<<<<< HEAD
 
     const userId = req.user?._id;
     if (!userId) {
@@ -56,6 +61,9 @@ export const getRoomById =  asyncHandler(async(req:CustomRequest,res:Response)=>
         };
         return res.status(201).json(new ApiResponse(201,"Room found (Awaiting Admission)",{room: sanitizedRoom, isAllowed: false},true));
     }
+=======
+    return res.status(201).json(new ApiResponse(201,"Room found",{room},true));
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
 })
 
 
@@ -79,10 +87,16 @@ export const joinRoom =  asyncHandler(async(req:CustomRequest,res:Response)=>{
 
     
     const p = room.participants;
+<<<<<<< HEAD
     if (!p.find((e: any) => e.id.toString() === userId.toString())) {
         p.push({id:userId,name:userName});
         room.participants = p;
         await Room.findByIdAndUpdate(room._id,room);
     }
+=======
+    p.push({id:userId,name:userName});
+    room.participants = p;
+        await Room.findByIdAndUpdate(room._id,room);
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
     return res.status(201).json(new ApiResponse(201,"Room Joined",{room},true));
 })

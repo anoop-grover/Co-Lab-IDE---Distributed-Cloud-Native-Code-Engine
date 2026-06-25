@@ -24,9 +24,15 @@ function App() {
       <Route path='' element={user ? <Home user={user}/> : <Hello/>}/>
       <Route path='signin' element={!user ? <SignIn/> : <Navigate to="/"/>}/>
       <Route path='signup' element={!user ? <SignUp/> : <Navigate to="/"/>}/>
+<<<<<<< HEAD
       <Route path='sandbox' element={user ? <SandBox/> : <Navigate to="/"/>}/>
       <Route path='sandbox/create' element={user ? <CreateFile/> : <Navigate to="/"/>}/>
       <Route path="sandbox/:userId/:fileId" element={user ? <SandBox/> : <Navigate to="/"/>}/>
+=======
+      <Route path='sandbox' element={user ? <SandBox/> : <Navigate to="/sandbox"/>}/>
+      <Route path='sandbox/create' element={user ? <CreateFile/> : <Navigate to="/"/>}/>
+      <Route path="sandbox/:userId/:fileId" element={user ? <SandBox/> : <Navigate to="/sandbox"/>}/>
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
       <Route path='collab' element={user ? <JoinRoom/> : <Navigate to="/"/>}/>
       <Route path='collab/:roomId' element={user ? <CollabarativeSandBox/> : <Navigate to="/"/>}/>
       <Route path='*' element={<ErrorBoundary/>}/>

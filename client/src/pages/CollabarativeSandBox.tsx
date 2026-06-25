@@ -13,10 +13,15 @@ import { IRoom } from "../types/room";
 import { initSocket } from "../sockets/initSocket";
 import { Actions } from "../sockets/Actions";
 import ErrorBoundary from "../components/Error";
+<<<<<<< HEAD
+=======
+import { User } from "../types/user";
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
 
 interface Participant {
   username: string;
   socketId: string;
+<<<<<<< HEAD
   lineNumber?: number;
   activeFile?: string;
 }
@@ -36,12 +41,24 @@ interface ChatMessage {
 
 const CollaborativeSandBox: React.FC = () => {
   const [output, setOutput] = useState<string>("");
+=======
+}
+
+const CollaborativeSandBox: React.FC = () => {
+
+  const [output, setOutput] = useState<string>("");
+  const [language, setLanguage] = useState<string>("javascript");
+  const [code, setCode] = useState<string>("");
+  const [theme, setTheme] = useState<string>("vs-dark");
+  const [fontSize, setFontSize] = useState<string>("10");
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
   const [running, setRunning] = useState<boolean>(false);
   const [runTime, setRunTime] = useState<number>(0);
   const [isAllowed, setIsAllowed] = useState<boolean>(false);
   const [room, setRoom] = useState<IRoom | undefined>(undefined);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
+<<<<<<< HEAD
   const [isPendingApproval, setIsPendingApproval] = useState<boolean>(false);
   const [joinRequests, setJoinRequests] = useState<{ username: string; userId: string; socketId: string }[]>([]);
   
@@ -66,11 +83,22 @@ const CollaborativeSandBox: React.FC = () => {
   const userId = user?._id || "";
   const { roomId } = useParams();
   const { getRoom, joinRoom } = useRoomService();
+=======
+
+
+
+  const user = useAppSelector((state) => state.auth.user);
+  const userId = user?._id || "";
+
+  const { roomId } = useParams();
+  const { getRoom } = useRoomService();
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
   const navigate = useNavigate();
   const axios = useAxios();
 
   const socketRef = useRef<any>(null);
   const editorRef = useRef<any>(null);
+<<<<<<< HEAD
   const monacoRef = useRef<any>(null);
   const decorationsRef = useRef<{ [socketId: string]: string[] }>({});
   const styleTagsRef = useRef<{ [socketId: string]: HTMLStyleElement }>({});
@@ -352,10 +380,92 @@ const CollaborativeSandBox: React.FC = () => {
         console.log(err);
         return <ErrorBoundary />;
       };
+=======
+
+  useEffect(() => {
+
+    const init = async () => {
+        if (!user)
+        {
+            notify("Login required to join", false);
+            setTimeout(() => {
+              navigate("/login");
+            }, 2000);
+            return;
+        }
+      try {
+        const res = await getRoom(roomId || "");
+        setRoom(res.room);
+        if (res.room.participants.find((e:any) => e.id === user._id)) {
+          setIsAllowed(true);
+        } else {
+          setIsAllowed(false);
+          return;
+        }
+        socketRef.current = await initSocket();
+        if(!socketRef.current)
+            return <Navigate to={"/"}/>;
+        socketRef.current.on("connect_error", (err: string) => {
+          handleError(err);
+        });
+        socketRef.current.on("connect_failed", (err: string) => {
+          handleError(err);
+      });
+      socketRef.current.emit(Actions.JOIN, {
+        roomId,
+        username: user?.user_name,
+      });
+
+      socketRef.current.on(
+        Actions.JOINED,
+        ({
+          clients,
+          username,
+        }: {
+          clients: Participant[];
+          username: string;
+          socketId: string;
+        }) => {
+          if (username != user?.user_name) {
+            notify(username + " Joined", true);
+          }
+          setParticipants(clients);
+        }
+      );
+      socketRef.current.on(Actions.SYNC_CODE, ({ code }: { code: string }) => {
+        setCode(code);
+      });
+      socketRef.current.on(
+        Actions.DISCONNECTED,
+        ({ socketId, username }: { socketId: string; username: string }) => {
+          notify(`${username} Left`, false);
+          setParticipants((prev) => {
+            return prev.filter((e) => e.socketId != socketId);
+          });
+        }
+      );
+      }
+        catch(error:any){
+          notify(error.message, false);
+            setTimeout(() => {
+              navigate("/login");
+            }, 1000);
+            return;
+        }
+     
+   
+      const handleError = (err: string) => {
+        console.log(err)
+       return <ErrorBoundary/>
+      };
+
+      
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
     };
 
     init();
     return () => {
+<<<<<<< HEAD
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current.off(Actions.JOINED);
@@ -475,6 +585,39 @@ const CollaborativeSandBox: React.FC = () => {
     try {
       if (code.length === 0) {
         notify("Empty code", false);
+=======
+      if(socketRef.current){
+        socketRef.current.disconnect();
+        socketRef.current.off(Actions.JOINED);
+        socketRef.current.off(Actions.DISCONNECTED);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    
+    if(socketRef && socketRef.current){
+      socketRef.current.on(Actions.CODE_CHANGED,({code}:{code:string,user:User,position:any})=>{
+        setCode(code);
+      })
+    }
+    return () => {
+      if(socketRef && socketRef.current)
+      socketRef.current.off(Actions.CODE_CHANGED);
+    }
+  }, [socketRef.current])
+
+  
+  const editorOptions = {
+    selectOnLineNumbers: true,
+    fontSize: Number(fontSize),
+  };
+  const runCode = async () => {
+    try {
+      if(code.length==0)
+      {
+        notify("Empty code",false);
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
         return;
       }
       setRunning(true);
@@ -482,13 +625,17 @@ const CollaborativeSandBox: React.FC = () => {
         code,
         language,
         userId,
+<<<<<<< HEAD
         input: stdinInput // Pass stdin input parameter
+=======
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
       });
       const jobId = response.data.jobId;
 
       const intervalId = setInterval(async () => {
         const { data } = await axios.get("code/status", { params: { jobId } });
         if (data.success) {
+<<<<<<< HEAD
           const { output: runOutput, startedAt, completedAt, status } = data.data.job;
           if (status === "pending") return;
           
@@ -498,15 +645,33 @@ const CollaborativeSandBox: React.FC = () => {
           setRunTime(duration);
           setRunning(false);
           setActiveTab("output"); // Switch to output tab
+=======
+          const { output, startedAt, completedAt, status } = data.data.job;
+          if (status == "pending") {
+            return;
+          }
+          clearInterval(intervalId);
+          setOutput(output);
+          const startedAt1: Date = new Date(startedAt);
+          const completedAt1: Date = new Date(completedAt);
+          const durationInMilliseconds: number =
+            completedAt1.getTime() - startedAt1.getTime();
+          setRunTime(durationInMilliseconds);
+          setRunning(false);
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
         } else {
           clearInterval(intervalId);
           setOutput(data.data.job.output);
           setRunning(false);
+<<<<<<< HEAD
           setActiveTab("output");
+=======
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
         }
       }, 1000);
     } catch (error: any) {
       setRunning(false);
+<<<<<<< HEAD
       notify(error.response?.data || error.message, false);
     }
   };
@@ -592,6 +757,27 @@ const CollaborativeSandBox: React.FC = () => {
         </div>
       )}
 
+=======
+      if (error.response) {
+        notify(error.response.data, false);
+        return;
+      }
+      notify(error.message, false);
+      console.error("Error running code:", error);
+    }
+  };
+
+  if(!isAllowed){
+    return <ErrorBoundary/>
+  }
+
+  const handleCodeChange = (e: any,position:any) => {
+    setCode(e);
+    socketRef.current.emit(Actions.CODE_CHANGED, { roomId, code: e,user,position});
+  };
+  return (
+    <>
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
       {showModal && participants ? (
         <RoomDetailsModal
           roomName={room?.name || ""}
@@ -619,6 +805,7 @@ const CollaborativeSandBox: React.FC = () => {
         setShowModal={setShowModal}
       />
 
+<<<<<<< HEAD
       <div className="flex flex-1 overflow-hidden bg-slate-950">
         
         {/* Left Workspace File tree sidebar */}
@@ -818,6 +1005,42 @@ const CollaborativeSandBox: React.FC = () => {
 
       </div>
     </div>
+=======
+      <div className="flex relative">
+      <MonacoEditor
+          onChange={(e) => {
+            // console.log(editorRef.current.getPosition())
+            handleCodeChange(e,editorRef.current.getPosition());
+          }}
+          onMount={(a)=>{editorRef.current=a}}
+          value={code}
+          height="100vh"
+          width="70vw"
+          options={editorOptions}
+          language={language}
+          theme={theme}
+        />
+      {/* {positions.map((position, index) => (
+  
+  <div key={index} style={{ position: 'absolute', top: position.lineNumber*-2, left: position.column*10 }}>
+    
+    <div style={{ width: '', height: '', backgroundColor: "paleturquoise", borderRadius: '20px', padding:"1px 5px" }}>
+      {position.user}
+    </div>
+    
+  </div> */}
+{/*   
+))} */}
+       
+
+        <div className="bg-black text-green-400 w-[40%]">
+          <h2>Output:</h2>
+          <pre className="text-green-400">{output}</pre>
+          <h4>Completed in {runTime} ms</h4>
+        </div>
+      </div>
+    </>
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
   );
 };
 

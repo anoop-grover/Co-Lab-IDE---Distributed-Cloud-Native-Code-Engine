@@ -23,6 +23,7 @@
    -webkit-text-fill-color: transparent;
    -webkit-background-clip: text;
    background-position:top;
+<<<<<<< HEAD
 }
 
 /* Remote cursor active line highlight */
@@ -41,4 +42,6 @@
 @keyframes cursorBlink {
   from, to { border-color: transparent }
   50% { border-color: #6366f1 }
+=======
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
 }

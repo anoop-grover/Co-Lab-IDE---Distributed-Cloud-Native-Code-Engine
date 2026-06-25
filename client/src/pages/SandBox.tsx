@@ -4,6 +4,7 @@ import { Toaster } from "react-hot-toast";
 import { notify } from "../utils/notify";
 import { useAppSelector } from "../app/hooks";
 import SandBoxNav from "../components/SandBoxNav";
+<<<<<<< HEAD
 import { useParams } from "react-router-dom";
 import useAxios from '../hooks/useAxios';
 
@@ -35,11 +36,38 @@ const SandBox: React.FC = () => {
 
   const { fileId } = useParams();
   const axios = useAxios();
+=======
+import {  useParams } from "react-router-dom";
+import useAxios from '../hooks/useAxios'
+const SandBox: React.FC = () => {
+  const [output, setOutput] = useState<string>("");
+  const [language, setLanguage] = useState<string>("javascript");
+  const [code, setCode] = useState<string>("");
+  const [theme, setTheme] = useState<string>("vs-dark");
+  const [fontSize, setFontSize] = useState<string>("10");
+  const [running, setRunning] = useState<boolean>(false);
+  const [runTime, setRunTime] = useState<number>(0);
+  const {fileId} = useParams();
+  useEffect(() => {
+    fetchData();
+  }, [])
+  const axios = useAxios();
+  const fetchData = async ()=>{
+      try {
+          const response = await axios.get(`code/file/${fileId}`);
+          setCode(response.data.data.sandBox.code);
+      } catch (error:any) {
+        notify(error.response.data.message,false);
+        console.log(error)
+      }
+  }  
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
 
   const userId = useAppSelector((state) => {
     return state.auth.user?._id;
   });
 
+<<<<<<< HEAD
   const activeFile = files[activeFileIndex] || files[0];
 
   useEffect(() => {
@@ -115,12 +143,26 @@ const SandBox: React.FC = () => {
     try {
       if (code.length === 0) {
         notify("Empty code", false);
+=======
+  const editorOptions = {
+    selectOnLineNumbers: true,
+    fontSize: Number(fontSize),
+  };
+  const runCode = async () => {
+    try {
+      if(code.length===0){
+        notify("Empty code",false);
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
         return;
       }
       setRunning(true);
       const response = await axios.post(
         "code/execute",
+<<<<<<< HEAD
         { code, language, userId, input: stdinInput }
+=======
+        { code, language, userId }
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
       );
       const jobId = response.data.jobId;
 
@@ -130,6 +172,7 @@ const SandBox: React.FC = () => {
           { params: { jobId } }
         );
         if (data.success) {
+<<<<<<< HEAD
           const { output: runOutput, startedAt, completedAt, status } = data.data.job;
           if (status === "pending") return;
           
@@ -139,10 +182,24 @@ const SandBox: React.FC = () => {
           setRunTime(duration);
           setRunning(false);
           setActiveTab("output"); // Auto switch to output
+=======
+          const { output, startedAt, completedAt, status } = data.data.job;
+          if (status == "pending") {
+            return;
+          }
+          clearInterval(intervalId);
+          setOutput(output);
+          const startedAt1: Date = new Date(startedAt);
+          const completedAt1: Date = new Date(completedAt);
+          const durationInMilliseconds: number = completedAt1.getTime() - startedAt1.getTime();
+          setRunTime(durationInMilliseconds);
+          setRunning(false);
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
         } else {
           clearInterval(intervalId);
           setOutput(data.data.job.output);
           setRunning(false);
+<<<<<<< HEAD
           setActiveTab("output");
         }
       }, 1000);
@@ -174,6 +231,25 @@ const SandBox: React.FC = () => {
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-slate-950 text-white font-sans">
+=======
+        }
+      }, 1000);
+    } catch (error: any) {
+     console.log(error)
+      setRunning(false);
+      // return
+      // if (error.response) {
+      //   notify(error.response.data, false);
+      //   return;
+      // }
+      notify(error.response.data || error.message, false);
+      console.error("Error running code:", error);
+      return;
+    }
+  };
+  return (
+    <>
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
       <Toaster />
       <SandBoxNav
         runCode={runCode}
@@ -188,6 +264,7 @@ const SandBox: React.FC = () => {
         setLanguage={setLanguage}
       />
 
+<<<<<<< HEAD
       <div className="flex flex-1 overflow-hidden bg-slate-950">
         
         {/* Left Files Sidebar */}
@@ -326,6 +403,28 @@ const SandBox: React.FC = () => {
 
       </div>
     </div>
+=======
+      <div className="flex">
+        <MonacoEditor
+        value={code}
+          height="100vh"
+          width="70vw"
+          options={editorOptions}
+          language={language}
+          theme={theme}
+          onChange={(val) => {
+            setCode(val || "");
+          }}
+        />
+
+        <div className="bg-black text-green-400 w-[40%]">
+          <h2>Output:</h2>
+          <pre className="text-green-400">{output}</pre>
+          <h4>Completed in {runTime} ms</h4>
+        </div>
+      </div>
+    </>
+>>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
   );
 };
 
