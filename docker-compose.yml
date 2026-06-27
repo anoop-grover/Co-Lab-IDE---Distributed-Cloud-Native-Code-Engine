@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:latest
+    container_name: colab-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:alpine
+    container_name: colab-redis
+    ports:
+      - "6379:6379"
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: colab-server
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - MONGO_URI=mongodb://mongo:27017/colab
+      - REDIS_URL=redis://redis:6379
+      - ENV=production
+      - JWT_SECRET=productionsecretkey999
+    depends_on:
+      - mongo
+      - redis
+
+  socket:
+    build:
+      context: ./socket
+      dockerfile: Dockerfile
+    container_name: colab-socket
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: colab-client
+    ports:
+      - "5173:5173"
+    depends_on:
+      - server
+      - socket
+
+volumes:
+  mongo-data:

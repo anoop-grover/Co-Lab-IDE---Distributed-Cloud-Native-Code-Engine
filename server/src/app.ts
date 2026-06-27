@@ -14,11 +14,7 @@ app.use(express.json());
 // Define the rate limiter middleware
 const limiter = rateLimit({
   windowMs: 10 * 1000, 
-<<<<<<< HEAD
   max: 10, 
-=======
-  max: 1, 
->>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
   message: 'Too many requests from this IP, please try again later.',
 });
 

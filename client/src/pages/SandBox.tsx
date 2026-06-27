@@ -4,7 +4,6 @@ import { Toaster } from "react-hot-toast";
 import { notify } from "../utils/notify";
 import { useAppSelector } from "../app/hooks";
 import SandBoxNav from "../components/SandBoxNav";
-<<<<<<< HEAD
 import { useParams } from "react-router-dom";
 import useAxios from '../hooks/useAxios';
 
@@ -14,6 +13,64 @@ interface ISandboxFile {
   language: string;
 }
 
+const LANGUAGE_TEMPLATES: { [key: string]: string } = {
+  javascript: `// ==============================================================================
+//                              Co-Lab IDE JavaScript Sandbox
+//               Welcome! You are ready to compile and run your JS scripts.
+// ==============================================================================
+
+console.log("Hello from Co-Lab IDE!");
+`,
+  python: `'''
+==============================================================================
+                              Co-Lab IDE Python Sandbox
+               Welcome! You are ready to compile and run your Python scripts.
+==============================================================================
+'''
+
+print("Hello from Co-Lab IDE!")
+`,
+  java: `// ==============================================================================
+//                              Co-Lab IDE Java Sandbox
+//               Welcome! You are ready to compile and run your Java class.
+// ==============================================================================
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello from Co-Lab IDE!");
+    }
+}
+`,
+  cpp: `/******************************************************************************
+                              Co-Lab IDE C++ Sandbox
+               Code, Compile, Run and Debug C++ program online.
+Write your code in this editor and press "Run" button to compile and execute it.
+*******************************************************************************/
+
+#include <iostream>
+
+int main()
+{
+    std::cout << "Hello from Co-Lab IDE!" << std::endl;
+    return 0;
+}
+`,
+  c: `/******************************************************************************
+                              Co-Lab IDE C Sandbox
+               Code, Compile, Run and Debug C program online.
+Write your code in this editor and press "Run" button to compile and execute it.
+*******************************************************************************/
+
+#include <stdio.h>
+
+int main()
+{
+    printf("Hello from Co-Lab IDE!\\n");
+    return 0;
+}
+`
+};
+
 const SandBox: React.FC = () => {
   const [output, setOutput] = useState<string>("");
   const [running, setRunning] = useState<boolean>(false);
@@ -21,7 +78,7 @@ const SandBox: React.FC = () => {
   
   // Stdin & Multi-file states
   const [files, setFiles] = useState<ISandboxFile[]>([
-    { name: "main.js", code: "", language: "javascript" }
+    { name: "main.js", code: LANGUAGE_TEMPLATES.javascript, language: "javascript" }
   ]);
   const [activeFileIndex, setActiveFileIndex] = useState<number>(0);
   const [code, setCode] = useState<string>("");
@@ -36,38 +93,11 @@ const SandBox: React.FC = () => {
 
   const { fileId } = useParams();
   const axios = useAxios();
-=======
-import {  useParams } from "react-router-dom";
-import useAxios from '../hooks/useAxios'
-const SandBox: React.FC = () => {
-  const [output, setOutput] = useState<string>("");
-  const [language, setLanguage] = useState<string>("javascript");
-  const [code, setCode] = useState<string>("");
-  const [theme, setTheme] = useState<string>("vs-dark");
-  const [fontSize, setFontSize] = useState<string>("10");
-  const [running, setRunning] = useState<boolean>(false);
-  const [runTime, setRunTime] = useState<number>(0);
-  const {fileId} = useParams();
-  useEffect(() => {
-    fetchData();
-  }, [])
-  const axios = useAxios();
-  const fetchData = async ()=>{
-      try {
-          const response = await axios.get(`code/file/${fileId}`);
-          setCode(response.data.data.sandBox.code);
-      } catch (error:any) {
-        notify(error.response.data.message,false);
-        console.log(error)
-      }
-  }  
->>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
 
   const userId = useAppSelector((state) => {
     return state.auth.user?._id;
   });
 
-<<<<<<< HEAD
   const activeFile = files[activeFileIndex] || files[0];
 
   useEffect(() => {
@@ -92,9 +122,9 @@ const SandBox: React.FC = () => {
           setCode(filesData[0].code);
           setLanguage(filesData[0].language);
         } else {
-          const defaultFiles = [{ name: "main.js", code: sandboxData.code || "", language: sandboxData.language || "javascript" }];
+          const defaultFiles = [{ name: "main.js", code: sandboxData.code || LANGUAGE_TEMPLATES.javascript, language: sandboxData.language || "javascript" }];
           setFiles(defaultFiles);
-          setCode(sandboxData.code || "");
+          setCode(sandboxData.code || LANGUAGE_TEMPLATES.javascript);
           setLanguage(sandboxData.language || "javascript");
         }
       }
@@ -106,6 +136,27 @@ const SandBox: React.FC = () => {
 
   const updateFileCode = (fileName: string, newCode: string) => {
     setFiles(prev => prev.map(f => f.name === fileName ? { ...f, code: newCode } : f));
+  };
+
+  const handleLanguageChange = (newLang: any) => {
+    const val = typeof newLang === 'function' ? newLang(language) : newLang;
+    setLanguage(val);
+
+    if (activeFile) {
+      const currentCode = activeFile.code;
+      const isTemplateOrEmpty = 
+        currentCode.trim() === "" || 
+        currentCode.trim() === "// Welcome to Co-Lab IDE" ||
+        Object.values(LANGUAGE_TEMPLATES).some(tpl => tpl.trim() === currentCode.trim());
+
+      const newCode = isTemplateOrEmpty ? (LANGUAGE_TEMPLATES[val] || "") : activeFile.code;
+
+      setFiles(prev => prev.map((f, idx) => 
+        idx === activeFileIndex ? { ...f, language: val, code: newCode } : f
+      ));
+      
+      setCode(newCode);
+    }
   };
 
   const handleCreateFile = (e: React.FormEvent) => {
@@ -123,7 +174,8 @@ const SandBox: React.FC = () => {
     else if (name.endsWith(".cpp")) lang = "cpp";
     else if (name.endsWith(".c")) lang = "c";
 
-    const newFile: ISandboxFile = { name, code: "", language: lang };
+    const defaultCode = LANGUAGE_TEMPLATES[lang] || "";
+    const newFile: ISandboxFile = { name, code: defaultCode, language: lang };
     setFiles(prev => [...prev, newFile]);
     setShowNewFileForm(false);
     setNewFileName("");
@@ -143,26 +195,12 @@ const SandBox: React.FC = () => {
     try {
       if (code.length === 0) {
         notify("Empty code", false);
-=======
-  const editorOptions = {
-    selectOnLineNumbers: true,
-    fontSize: Number(fontSize),
-  };
-  const runCode = async () => {
-    try {
-      if(code.length===0){
-        notify("Empty code",false);
->>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
         return;
       }
       setRunning(true);
       const response = await axios.post(
         "code/execute",
-<<<<<<< HEAD
         { code, language, userId, input: stdinInput }
-=======
-        { code, language, userId }
->>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
       );
       const jobId = response.data.jobId;
 
@@ -172,7 +210,6 @@ const SandBox: React.FC = () => {
           { params: { jobId } }
         );
         if (data.success) {
-<<<<<<< HEAD
           const { output: runOutput, startedAt, completedAt, status } = data.data.job;
           if (status === "pending") return;
           
@@ -182,24 +219,10 @@ const SandBox: React.FC = () => {
           setRunTime(duration);
           setRunning(false);
           setActiveTab("output"); // Auto switch to output
-=======
-          const { output, startedAt, completedAt, status } = data.data.job;
-          if (status == "pending") {
-            return;
-          }
-          clearInterval(intervalId);
-          setOutput(output);
-          const startedAt1: Date = new Date(startedAt);
-          const completedAt1: Date = new Date(completedAt);
-          const durationInMilliseconds: number = completedAt1.getTime() - startedAt1.getTime();
-          setRunTime(durationInMilliseconds);
-          setRunning(false);
->>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
         } else {
           clearInterval(intervalId);
           setOutput(data.data.job.output);
           setRunning(false);
-<<<<<<< HEAD
           setActiveTab("output");
         }
       }, 1000);
@@ -231,25 +254,6 @@ const SandBox: React.FC = () => {
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-slate-950 text-white font-sans">
-=======
-        }
-      }, 1000);
-    } catch (error: any) {
-     console.log(error)
-      setRunning(false);
-      // return
-      // if (error.response) {
-      //   notify(error.response.data, false);
-      //   return;
-      // }
-      notify(error.response.data || error.message, false);
-      console.error("Error running code:", error);
-      return;
-    }
-  };
-  return (
-    <>
->>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
       <Toaster />
       <SandBoxNav
         runCode={runCode}
@@ -261,10 +265,9 @@ const SandBox: React.FC = () => {
         running={running}
         setCode={setCode}
         language={language}
-        setLanguage={setLanguage}
+        setLanguage={handleLanguageChange}
       />
 
-<<<<<<< HEAD
       <div className="flex flex-1 overflow-hidden bg-slate-950">
         
         {/* Left Files Sidebar */}
@@ -403,28 +406,6 @@ const SandBox: React.FC = () => {
 
       </div>
     </div>
-=======
-      <div className="flex">
-        <MonacoEditor
-        value={code}
-          height="100vh"
-          width="70vw"
-          options={editorOptions}
-          language={language}
-          theme={theme}
-          onChange={(val) => {
-            setCode(val || "");
-          }}
-        />
-
-        <div className="bg-black text-green-400 w-[40%]">
-          <h2>Output:</h2>
-          <pre className="text-green-400">{output}</pre>
-          <h4>Completed in {runTime} ms</h4>
-        </div>
-      </div>
-    </>
->>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
   );
 };
 

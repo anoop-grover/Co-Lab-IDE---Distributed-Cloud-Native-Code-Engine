@@ -1,26 +1,16 @@
-<<<<<<< HEAD
 import { FaPlay, FaRegSave, FaShareAlt } from "react-icons/fa";
-=======
-import { FaPlay, FaRegSave } from "react-icons/fa";
->>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
-
 import { MdOutlineDarkMode,MdLightMode } from "react-icons/md";
 import { notify } from "../utils/notify";
 import { useParams } from "react-router-dom";
-// import useRoomService from "../hooks/useRoom";
 
 import { BsThreeDotsVertical } from "react-icons/bs";
-
 import useAxios from '../hooks/useAxios';
-// import { useEffect } from "react";
 import { IRoom } from "../types/room";
+
 interface Participant {
   username: string;
   socketId: string;
-<<<<<<< HEAD
   lineNumber?: number;
-=======
->>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
 }
 interface SandBoxNavProps {
   language: string;
@@ -36,7 +26,6 @@ interface SandBoxNavProps {
   room?:IRoom;
   setShowModal?: React.Dispatch<React.SetStateAction<boolean>>
   participants?:Participant[];
-  
 }
 const SandBoxNav: React.FC<SandBoxNavProps> = ({
   language,
@@ -51,8 +40,6 @@ const SandBoxNav: React.FC<SandBoxNavProps> = ({
   room,
   setShowModal,
   participants,
-  
-
 }) => {
   const displayCount = 2; // Number of participants to display
 
@@ -71,14 +58,11 @@ const SandBoxNav: React.FC<SandBoxNavProps> = ({
      notify(error.message,false);
     }
   }
-<<<<<<< HEAD
 
   const handleShareInvite = () => {
     navigator.clipboard.writeText(window.location.href);
     notify("Invite link copied to clipboard!", true);
   };
-=======
->>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
  
   return (
     <div className="flex justify-end items-center py-3 space-x-1 md:space-x-3 px-5 border-t-2 border-b-2 border-slate-700 bg-slate-900 ">
@@ -92,11 +76,7 @@ const SandBoxNav: React.FC<SandBoxNavProps> = ({
             setLanguage(e.target.value);
           }}
         >
-<<<<<<< HEAD
           <option value="javascript">Javascript</option>
-=======
-          <option value="vs-dark">Javascript</option>
->>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
           <option value="java">Java</option>
           <option value="c">C</option>
           <option value="cpp">C++</option>
@@ -139,10 +119,7 @@ const SandBoxNav: React.FC<SandBoxNavProps> = ({
           if (theme === "vs-dark") setTheme("light");
           else setTheme("vs-dark");
         }}
-<<<<<<< HEAD
         title="Toggle Theme"
-=======
->>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
       >
         {theme === "vs-dark" ? (
           <MdLightMode fill="#fff" size={30} />
@@ -150,7 +127,6 @@ const SandBoxNav: React.FC<SandBoxNavProps> = ({
           <MdOutlineDarkMode fill="#fff" size={30} />
         )}
       </button>
-<<<<<<< HEAD
 
       {room && (
         <button
@@ -162,14 +138,11 @@ const SandBoxNav: React.FC<SandBoxNavProps> = ({
           <span>Invite</span>
         </button>
       )}
-=======
->>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
     {
       room &&
       <div className="contributors flex ">
 
       {participants && participants.slice(0, displayCount).map((participant, index) => (
-<<<<<<< HEAD
         <span title={`${participant.username}${participant.lineNumber ? ` (Line ${participant.lineNumber})` : ""}`} key={index} className={`w-10 flex items-center justify-center relative ${getCircleStyle(index)} `}>
           {participant.username.charAt(0).toUpperCase()}
           {participant.lineNumber && (
@@ -177,10 +150,6 @@ const SandBoxNav: React.FC<SandBoxNavProps> = ({
               L{participant.lineNumber}
             </span>
           )}
-=======
-        <span title={participant.username} key={index} className={`w-10   flex items-center justify-center  ${getCircleStyle(index)} `}>
-          {participant.username.charAt(0).toUpperCase()}
->>>>>>> 77dd6efc1501daac0e155aba29b032095756a3ac
         </span>
       ))}
       {participants && participants.length > displayCount && (
