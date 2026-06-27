@@ -1,0 +1,27 @@
+services:
+  # Main Backend API Server
+  - type: web
+    name: co-lab-api
+    env: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: ENV
+        value: production
+      - key: MONGO_URI
+        sync: false # Provide your MongoDB Atlas Connection String
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        value: "*"
+
+  # Real-Time Socket Server
+  - type: web
+    name: co-lab-socket
+    env: node
+    plan: free
+    rootDir: socket
+    buildCommand: npm install
+    startCommand: node src/index.js
