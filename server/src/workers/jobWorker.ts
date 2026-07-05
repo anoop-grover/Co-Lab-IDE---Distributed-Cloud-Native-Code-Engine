@@ -26,8 +26,8 @@ export const validateCodeSecurity = (language: string, code: string): void => {
         }
     }
 
-    // JavaScript blacklists
-    if (lang === "javascript" || lang === "node") {
+    // JavaScript / TypeScript blacklists
+    if (lang === "javascript" || lang === "typescript" || lang === "node") {
         const forbidden = ["child_process", "fs.", "eval(", "process.", "require('cluster')", "global.", "require(\"cluster\")", "require('fs')", "require(\"fs\")", "require('child_process')", "require(\"child_process\")"];
         for (const word of forbidden) {
             if (normalized.includes(word)) {
@@ -52,6 +52,46 @@ export const validateCodeSecurity = (language: string, code: string): void => {
         for (const word of forbidden) {
             if (normalized.includes(word)) {
                 throw new Error(`Security Policy: Execution of system commands or process spawning (${word}) is prohibited in local execution mode.`);
+            }
+        }
+    }
+
+    // Go blacklists
+    if (lang === "go") {
+        const forbidden = ["os/exec", "syscall", "net/http", "net.", "import\"os\"", "import\"syscall\"", "import\"net\"", "import\"net/http\""];
+        for (const word of forbidden) {
+            if (normalized.includes(word)) {
+                throw new Error(`Security Policy: System execution or networking calls (${word}) are prohibited in Go local execution mode.`);
+            }
+        }
+    }
+
+    // Rust blacklists
+    if (lang === "rust") {
+        const forbidden = ["std::process", "std::fs", "std::net", "useprocess", "usefs", "usenet"];
+        for (const word of forbidden) {
+            if (normalized.includes(word)) {
+                throw new Error(`Security Policy: Process execution or file access (${word}) is prohibited in Rust local execution mode.`);
+            }
+        }
+    }
+
+    // Ruby blacklists
+    if (lang === "ruby") {
+        const forbidden = ["system", "exec", "spawn", "io.popen", "require'socket'", "require'net'"];
+        for (const word of forbidden) {
+            if (normalized.includes(word)) {
+                throw new Error(`Security Policy: Command execution or socket operations (${word}) are prohibited in Ruby local execution mode.`);
+            }
+        }
+    }
+
+    // PHP blacklists
+    if (lang === "php") {
+        const forbidden = ["exec", "system", "shell_exec", "passthru", "proc_open", "popen", "file_get_contents", "fsockopen"];
+        for (const word of forbidden) {
+            if (normalized.includes(word)) {
+                throw new Error(`Security Policy: Shell execution or external operations (${word}) are prohibited in PHP local execution mode.`);
             }
         }
     }
@@ -147,6 +187,82 @@ export const executeLocally = async (language: string, code: string, input: stri
                     return "C++ compilation failed. Please ensure G++ is installed on the system, or run with Docker. Details: " + err.message;
                 }
             }
+            case 'typescript': {
+                const filePath = path.join(tempDir, `run_${rand}.ts`);
+                fs.writeFileSync(filePath, code);
+                try {
+                    const { stdout, stderr } = await execPromise(`npx -y ts-node "${filePath}"${pipeSuffix}`, { timeout: 5000 });
+                    try { fs.unlinkSync(filePath); } catch {}
+                    try { if (inputPath) fs.unlinkSync(inputPath); } catch {}
+                    return (stdout + stderr).trim();
+                } catch (err: any) {
+                    try { fs.unlinkSync(filePath); } catch {}
+                    try { if (inputPath) fs.unlinkSync(inputPath); } catch {}
+                    return "TypeScript run failed. Please ensure ts-node is available. Details: " + err.message;
+                }
+            }
+            case 'go': {
+                const filePath = path.join(tempDir, `main_${rand}.go`);
+                fs.writeFileSync(filePath, code);
+                try {
+                    const { stdout, stderr } = await execPromise(`go run "${filePath}"${pipeSuffix}`, { timeout: 5000 });
+                    try { fs.unlinkSync(filePath); } catch {}
+                    try { if (inputPath) fs.unlinkSync(inputPath); } catch {}
+                    return (stdout + stderr).trim();
+                } catch (err: any) {
+                    try { fs.unlinkSync(filePath); } catch {}
+                    try { if (inputPath) fs.unlinkSync(inputPath); } catch {}
+                    return "Go run failed. Please ensure Go is installed. Details: " + err.message;
+                }
+            }
+            case 'rust': {
+                const filePath = path.join(tempDir, `main_${rand}.rs`);
+                const exePath = path.join(tempDir, `main_${rand}.exe`);
+                fs.writeFileSync(filePath, code);
+                try {
+                    await execPromise(`rustc "${filePath}" -o "${exePath}"`, { timeout: 5000 });
+                    const { stdout, stderr } = await execPromise(`"${exePath}"${pipeSuffix}`, { timeout: 5000 });
+                    try { fs.unlinkSync(filePath); fs.unlinkSync(exePath); } catch {}
+                    try { if (inputPath) fs.unlinkSync(inputPath); } catch {}
+                    return (stdout + stderr).trim();
+                } catch (err: any) {
+                    try { fs.unlinkSync(filePath); } catch {}
+                    try { if (inputPath) fs.unlinkSync(inputPath); } catch {}
+                    return "Rust compilation failed. Please ensure Rust is installed. Details: " + err.message;
+                }
+            }
+            case 'ruby': {
+                const filePath = path.join(tempDir, `run_${rand}.rb`);
+                fs.writeFileSync(filePath, code);
+                try {
+                    const { stdout, stderr } = await execPromise(`ruby "${filePath}"${pipeSuffix}`, { timeout: 5000 });
+                    try { fs.unlinkSync(filePath); } catch {}
+                    try { if (inputPath) fs.unlinkSync(inputPath); } catch {}
+                    return (stdout + stderr).trim();
+                } catch (err: any) {
+                    try { fs.unlinkSync(filePath); } catch {}
+                    try { if (inputPath) fs.unlinkSync(inputPath); } catch {}
+                    return "Ruby run failed. Details: " + err.message;
+                }
+            }
+            case 'php': {
+                const filePath = path.join(tempDir, `run_${rand}.php`);
+                fs.writeFileSync(filePath, code);
+                try {
+                    const { stdout, stderr } = await execPromise(`php "${filePath}"${pipeSuffix}`, { timeout: 5000 });
+                    try { fs.unlinkSync(filePath); } catch {}
+                    try { if (inputPath) fs.unlinkSync(inputPath); } catch {}
+                    return (stdout + stderr).trim();
+                } catch (err: any) {
+                    try { fs.unlinkSync(filePath); } catch {}
+                    try { if (inputPath) fs.unlinkSync(inputPath); } catch {}
+                    return "PHP run failed. Details: " + err.message;
+                }
+            }
+            case 'html': {
+                try { if (inputPath) fs.unlinkSync(inputPath); } catch {}
+                return "Frontend HTML code ready for iframe rendering preview.";
+            }
             default:
                 throw new ApiError(400, "Unsupported language");
         }
@@ -169,60 +285,84 @@ export const processJobData = async (jobData: any) => {
             
             let image: string;
             let command: string[];
-            switch (language.toLowerCase()) {
-                case 'javascript':
-                    image = 'node';
-                    command = ['node', '-e', code];
-                    break;
-                case 'java':
-                    image = 'openjdk';
-                    command = ['bash', '-c', `echo '${code}' > Main.java && javac Main.java && java Main`];
-                    break;
-                case 'cpp':
-                    image = 'gcc';
-                    command = ['bash', '-c', `echo '${code}' > main.cpp && g++ main.cpp -o main && ./main`];
-                    break;
-                case 'python':
-                    image = 'python:latest';
-                    command = ['bash', '-c', `echo '${code}' > script.py && python script.py`];
-                    break;
-                case 'c':
-                    image = 'gcc';
-                    command = ['bash', '-c', `echo '${code}' > main.c && gcc main.c -o main && ./main`];
-                    break;
-                default:
-                    throw new ApiError(400, "Unsupported language");
-            }
-            
-            const container = await docker.createContainer({
-                Image: image,
-                Tty: false,
-                AttachStdout: true,
-                AttachStderr: true,
-                Cmd: command,
-                HostConfig: {
-                    NetworkMode: 'none',
-                    Memory: 128 * 1024 * 1024, // 128MB
-                    MemorySwap: 128 * 1024 * 1024, // Disable swap overflow
-                    NanoCpus: 500000000 // 0.5 CPU
+            if (language.toLowerCase() === 'html') {
+                output = "Frontend HTML code ready for iframe rendering preview.";
+            } else {
+                switch (language.toLowerCase()) {
+                    case 'javascript':
+                        image = 'node';
+                        command = ['node', '-e', code];
+                        break;
+                    case 'typescript':
+                        image = 'node';
+                        command = ['bash', '-c', `npm install -g ts-node typescript && echo '${code}' > run.ts && ts-node run.ts`];
+                        break;
+                    case 'java':
+                        image = 'openjdk';
+                        command = ['bash', '-c', `echo '${code}' > Main.java && javac Main.java && java Main`];
+                        break;
+                    case 'cpp':
+                        image = 'gcc';
+                        command = ['bash', '-c', `echo '${code}' > main.cpp && g++ main.cpp -o main && ./main`];
+                        break;
+                    case 'python':
+                        image = 'python:latest';
+                        command = ['bash', '-c', `echo '${code}' > script.py && python script.py`];
+                        break;
+                    case 'c':
+                        image = 'gcc';
+                        command = ['bash', '-c', `echo '${code}' > main.c && gcc main.c -o main && ./main`];
+                        break;
+                    case 'go':
+                        image = 'golang:latest';
+                        command = ['bash', '-c', `echo '${code}' > main.go && go run main.go`];
+                        break;
+                    case 'rust':
+                        image = 'rust:latest';
+                        command = ['bash', '-c', `echo '${code}' > main.rs && rustc main.rs && ./main`];
+                        break;
+                    case 'ruby':
+                        image = 'ruby:latest';
+                        command = ['ruby', '-e', code];
+                        break;
+                    case 'php':
+                        image = 'php:cli';
+                        command = ['php', '-r', code];
+                        break;
+                    default:
+                        throw new ApiError(400, "Unsupported language");
                 }
-            });
-            await container.start();
-            
-            const executionPromise = container.wait();
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => {
-                    reject(new ApiError(500, "Time Limit Exceeded, Maximum 5 Seconds"));
-                }, 5000);
-            });
-            
-            await Promise.race([executionPromise, timeoutPromise]);
-            const logs = await container.logs({ stdout: true, stderr: true });
-            output = logs.toString('utf-8').trim();
-            
-            try {
-                await container.remove({ force: true });
-            } catch {}
+                
+                const container = await docker.createContainer({
+                    Image: image,
+                    Tty: false,
+                    AttachStdout: true,
+                    AttachStderr: true,
+                    Cmd: command,
+                    HostConfig: {
+                        NetworkMode: 'none',
+                        Memory: 128 * 1024 * 1024, // 128MB
+                        MemorySwap: 128 * 1024 * 1024, // Disable swap overflow
+                        NanoCpus: 500000000 // 0.5 CPU
+                    }
+                });
+                await container.start();
+                
+                const executionPromise = container.wait();
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => {
+                        reject(new ApiError(500, "Time Limit Exceeded, Maximum 5 Seconds"));
+                    }, 5000);
+                });
+                
+                await Promise.race([executionPromise, timeoutPromise]);
+                const logs = await container.logs({ stdout: true, stderr: true });
+                output = logs.toString('utf-8').trim();
+                
+                try {
+                    await container.remove({ force: true });
+                } catch {}
+            }
         } catch (dockerError: any) {
             console.log("Docker not active. Using local compiler with stdin support.");
             output = await executeLocally(language, code, input || "");

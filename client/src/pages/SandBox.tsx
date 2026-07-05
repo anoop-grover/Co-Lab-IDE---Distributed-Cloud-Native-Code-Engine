@@ -69,6 +69,83 @@ int main()
     printf("Hello from Co-Lab IDE!\\n");
     return 0;
 }
+`,
+  typescript: `// ==============================================================================
+//                              Co-Lab IDE TypeScript Sandbox
+// ==============================================================================
+
+const greet = (name: string): string => {
+    return \`Hello \${name} from Co-Lab IDE!\`;
+};
+console.log(greet("Developer"));
+`,
+  go: `package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("Hello from Co-Lab IDE!")
+}
+`,
+  rust: `fn main() {
+    println!("Hello from Co-Lab IDE!");
+}
+`,
+  ruby: `puts "Hello from Co-Lab IDE!"
+`,
+  php: `<?php
+echo "Hello from Co-Lab IDE!\\n";
+?>
+`,
+  html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Co-Lab Live Preview</title>
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e1b4b);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 2.5rem;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transform: scale(0.9);
+            animation: popIn 0.5s ease forwards;
+        }
+        h1 {
+            background: linear-gradient(to right, #6366f1, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        p {
+            color: #94a3b8;
+        }
+        @keyframes popIn {
+            to { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Co-Lab Live Preview</h1>
+        <p>Edit HTML, CSS, or JS in the editor to see instant live rendering updates!</p>
+    </div>
+</body>
+</html>
 `
 };
 
@@ -517,8 +594,15 @@ const SandBox: React.FC = () => {
           <div className="flex-1 overflow-hidden flex flex-col bg-slate-950">
             {activeTab === "output" && (
               <div className="flex-grow flex flex-col h-full overflow-hidden">
-                <div className="flex-1 p-4 font-mono text-sm overflow-y-auto text-emerald-400 leading-relaxed">
-                  {output ? (
+                <div className="flex-1 p-4 font-mono text-sm overflow-y-auto text-emerald-400 leading-relaxed h-full">
+                  {language.toLowerCase() === "html" ? (
+                    <iframe
+                      srcDoc={code}
+                      title="HTML Live Preview"
+                      sandbox="allow-scripts"
+                      className="w-full h-full bg-white rounded-xl border border-slate-800"
+                    />
+                  ) : output ? (
                     <pre className="whitespace-pre-wrap font-mono break-all">{output}</pre>
                   ) : (
                     <span className="text-slate-600 italic">Run your code to see the output logs here...</span>
