@@ -12,7 +12,58 @@ dotenv.config();
 
 const execPromise = promisify(exec);
 
+export const validateCodeSecurity = (language: string, code: string): void => {
+    const lang = language.toLowerCase();
+    const normalized = code.replace(/\s+/g, "").toLowerCase();
+
+    // Python blacklists
+    if (lang === "python") {
+        const forbidden = ["os.system", "subprocess.", "shutil.", "pty.", "eval(", "exec(", "importos", "importsys", "importsubprocess", "importshutil", "fromosimport", "fromsubprocessimport"];
+        for (const word of forbidden) {
+            if (normalized.includes(word)) {
+                throw new Error(`Security Policy: Execution of dangerous modules or commands (${word}) is prohibited in local execution mode.`);
+            }
+        }
+    }
+
+    // JavaScript blacklists
+    if (lang === "javascript" || lang === "node") {
+        const forbidden = ["child_process", "fs.", "eval(", "process.", "require('cluster')", "global.", "require(\"cluster\")", "require('fs')", "require(\"fs\")", "require('child_process')", "require(\"child_process\")"];
+        for (const word of forbidden) {
+            if (normalized.includes(word)) {
+                throw new Error(`Security Policy: Execution of file system or shell operations (${word}) is prohibited in local execution mode.`);
+            }
+        }
+    }
+
+    // Java blacklists
+    if (lang === "java") {
+        const forbidden = ["runtime.getruntime", "processbuilder", "system.exit", "java.io.file", "java.nio.file", "java.io.defaultfilesystem", "java.io.tmpdir"];
+        for (const word of forbidden) {
+            if (normalized.includes(word)) {
+                throw new Error(`Security Policy: System operations or file system manipulations (${word}) are prohibited in local execution mode.`);
+            }
+        }
+    }
+
+    // C / C++ blacklists
+    if (lang === "c" || lang === "cpp") {
+        const forbidden = ["system(", "popen(", "fork(", "exec(", "windows.h", "process.h", "std::system", "::system"];
+        for (const word of forbidden) {
+            if (normalized.includes(word)) {
+                throw new Error(`Security Policy: Execution of system commands or process spawning (${word}) is prohibited in local execution mode.`);
+            }
+        }
+    }
+};
+
 export const executeLocally = async (language: string, code: string, input: string): Promise<string> => {
+    try {
+        validateCodeSecurity(language, code);
+    } catch (secError: any) {
+        return secError.message;
+    }
+
     const tempDir = path.join(process.cwd(), 'temp_bin');
     if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });
@@ -149,6 +200,12 @@ export const processJobData = async (jobData: any) => {
                 AttachStdout: true,
                 AttachStderr: true,
                 Cmd: command,
+                HostConfig: {
+                    NetworkMode: 'none',
+                    Memory: 128 * 1024 * 1024, // 128MB
+                    MemorySwap: 128 * 1024 * 1024, // Disable swap overflow
+                    NanoCpus: 500000000 // 0.5 CPU
+                }
             });
             await container.start();
             

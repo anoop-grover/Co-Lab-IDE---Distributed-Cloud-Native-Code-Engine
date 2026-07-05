@@ -24,8 +24,10 @@ interface SandBoxNavProps {
   setCode: React.Dispatch<React.SetStateAction<string>>;
   runCode: () => Promise<void>;
   room?:IRoom;
-  setShowModal?: React.Dispatch<React.SetStateAction<boolean>>
+  setShowModal?: React.Dispatch<React.SetStateAction<boolean>>;
   participants?:Participant[];
+  onJumpToCollaborator?: (socketId: string) => void;
+  isReadOnly?: boolean;
 }
 const SandBoxNav: React.FC<SandBoxNavProps> = ({
   language,
@@ -40,6 +42,8 @@ const SandBoxNav: React.FC<SandBoxNavProps> = ({
   room,
   setShowModal,
   participants,
+  onJumpToCollaborator,
+  isReadOnly,
 }) => {
   const displayCount = 2; // Number of participants to display
 
@@ -106,8 +110,10 @@ const SandBoxNav: React.FC<SandBoxNavProps> = ({
         </button>
       }
       <button
-        disabled={running}
-        className="bg-green-600 text-sm flex items-center px-2 py-1 md:py-2 md:px-3 rounded-lg text-white hover:bg-green-700"
+        disabled={running || isReadOnly}
+        className={`text-sm flex items-center px-2 py-1 md:py-2 md:px-3 rounded-lg text-white ${
+          running || isReadOnly ? "bg-slate-700 cursor-not-allowed opacity-50" : "bg-green-600 hover:bg-green-700"
+        }`}
         onClick={runCode}
       >
         {running ? "Running..." : "Run"}
@@ -143,7 +149,12 @@ const SandBoxNav: React.FC<SandBoxNavProps> = ({
       <div className="contributors flex ">
 
       {participants && participants.slice(0, displayCount).map((participant, index) => (
-        <span title={`${participant.username}${participant.lineNumber ? ` (Line ${participant.lineNumber})` : ""}`} key={index} className={`w-10 flex items-center justify-center relative ${getCircleStyle(index)} `}>
+        <span 
+          title={`${participant.username}${participant.lineNumber ? ` (Line ${participant.lineNumber})` : ""} - Click to jump to cursor`} 
+          key={index} 
+          onClick={() => onJumpToCollaborator && onJumpToCollaborator(participant.socketId)}
+          className={`w-10 flex items-center justify-center relative ${getCircleStyle(index)} cursor-pointer hover:scale-105 active:scale-95 transition-all`}
+        >
           {participant.username.charAt(0).toUpperCase()}
           {participant.lineNumber && (
             <span className="absolute -bottom-1 -right-1 bg-indigo-600 text-[8px] font-bold text-white px-1 rounded-full border border-slate-900 shadow">

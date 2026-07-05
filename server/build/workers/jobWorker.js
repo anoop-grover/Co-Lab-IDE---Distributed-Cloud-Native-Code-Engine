@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.processJobData = exports.executeLocally = void 0;
+exports.processJobData = exports.executeLocally = exports.validateCodeSecurity = void 0;
 const bullmq_1 = require("bullmq");
 const apiError_1 = require("../utils/apiError");
 const dockerode_1 = __importDefault(require("dockerode"));
@@ -24,7 +24,54 @@ const path_1 = __importDefault(require("path"));
 const util_1 = require("util");
 dotenv_1.default.config();
 const execPromise = (0, util_1.promisify)(child_process_1.exec);
+const validateCodeSecurity = (language, code) => {
+    const lang = language.toLowerCase();
+    const normalized = code.replace(/\s+/g, "").toLowerCase();
+    // Python blacklists
+    if (lang === "python") {
+        const forbidden = ["os.system", "subprocess.", "shutil.", "pty.", "eval(", "exec(", "importos", "importsys", "importsubprocess", "importshutil", "fromosimport", "fromsubprocessimport"];
+        for (const word of forbidden) {
+            if (normalized.includes(word)) {
+                throw new Error(`Security Policy: Execution of dangerous modules or commands (${word}) is prohibited in local execution mode.`);
+            }
+        }
+    }
+    // JavaScript blacklists
+    if (lang === "javascript" || lang === "node") {
+        const forbidden = ["child_process", "fs.", "eval(", "process.", "require('cluster')", "global.", "require(\"cluster\")", "require('fs')", "require(\"fs\")", "require('child_process')", "require(\"child_process\")"];
+        for (const word of forbidden) {
+            if (normalized.includes(word)) {
+                throw new Error(`Security Policy: Execution of file system or shell operations (${word}) is prohibited in local execution mode.`);
+            }
+        }
+    }
+    // Java blacklists
+    if (lang === "java") {
+        const forbidden = ["runtime.getruntime", "processbuilder", "system.exit", "java.io.file", "java.nio.file", "java.io.defaultfilesystem", "java.io.tmpdir"];
+        for (const word of forbidden) {
+            if (normalized.includes(word)) {
+                throw new Error(`Security Policy: System operations or file system manipulations (${word}) are prohibited in local execution mode.`);
+            }
+        }
+    }
+    // C / C++ blacklists
+    if (lang === "c" || lang === "cpp") {
+        const forbidden = ["system(", "popen(", "fork(", "exec(", "windows.h", "process.h", "std::system", "::system"];
+        for (const word of forbidden) {
+            if (normalized.includes(word)) {
+                throw new Error(`Security Policy: Execution of system commands or process spawning (${word}) is prohibited in local execution mode.`);
+            }
+        }
+    }
+};
+exports.validateCodeSecurity = validateCodeSecurity;
 const executeLocally = (language, code, input) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        (0, exports.validateCodeSecurity)(language, code);
+    }
+    catch (secError) {
+        return secError.message;
+    }
     const tempDir = path_1.default.join(process.cwd(), 'temp_bin');
     if (!fs_1.default.existsSync(tempDir)) {
         fs_1.default.mkdirSync(tempDir, { recursive: true });
@@ -210,6 +257,12 @@ const processJobData = (jobData) => __awaiter(void 0, void 0, void 0, function* 
                 AttachStdout: true,
                 AttachStderr: true,
                 Cmd: command,
+                HostConfig: {
+                    NetworkMode: 'none',
+                    Memory: 128 * 1024 * 1024, // 128MB
+                    MemorySwap: 128 * 1024 * 1024, // Disable swap overflow
+                    NanoCpus: 500000000 // 0.5 CPU
+                }
             });
             yield container.start();
             const executionPromise = container.wait();

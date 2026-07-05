@@ -70,7 +70,7 @@ const UserSchema = new mongoose_1.Schema({
 // };
 UserSchema.methods.generateToken = function () {
     return __awaiter(this, void 0, void 0, function* () {
-        return jsonwebtoken_1.default.sign({ _id: this._id, email: this.email, user_name: this.user_name }, process.env.JWT_SECRET || "abc");
+        return jsonwebtoken_1.default.sign({ _id: this._id, email: this.email, user_name: this.user_name }, process.env.JWT_SECRET || "abc", { expiresIn: "24h" });
     });
 };
 exports.User = mongoose_1.default.model("User", UserSchema);

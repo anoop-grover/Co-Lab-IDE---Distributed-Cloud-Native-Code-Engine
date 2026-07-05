@@ -47,7 +47,8 @@ const UserSchema = new Schema<IUser>({
 UserSchema.methods.generateToken = async function () {
   return jwt.sign(
     { _id: this._id, email: this.email, user_name: this.user_name },
-    process.env.JWT_SECRET || "abc"
+    process.env.JWT_SECRET || "abc",
+    { expiresIn: "24h" }
   );
 };
 

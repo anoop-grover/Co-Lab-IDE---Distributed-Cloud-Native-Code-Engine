@@ -2,11 +2,20 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { ImExit } from "react-icons/im";
 
+interface Participant {
+  username: string;
+  socketId: string;
+  isReadOnly?: boolean;
+}
+
 interface Props {
   roomName: string;
   roomPassword: string;
   setShowModal: any;
-  participants: { username: string; socketId: string }[];
+  participants: Participant[];
+  isHost: boolean;
+  onTogglePermission?: (socketId: string, currentReadOnly: boolean) => void;
+  mySocketId?: string;
 }
 
 const RoomDetailsModal: React.FC<Props> = ({
@@ -14,6 +23,9 @@ const RoomDetailsModal: React.FC<Props> = ({
   roomPassword,
   setShowModal,
   participants,
+  isHost,
+  onTogglePermission,
+  mySocketId,
 }) => {
   const navigate = useNavigate();
   return (
@@ -49,16 +61,32 @@ const RoomDetailsModal: React.FC<Props> = ({
 
           <div className="space-y-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Active Collaborators ({participants.length})</span>
-            <div className="max-h-36 overflow-y-auto bg-slate-950/50 border border-slate-850 rounded-xl p-3 space-y-1.5 font-sans">
+            <div className="max-h-48 overflow-y-auto bg-slate-950/50 border border-slate-850 rounded-xl p-3 space-y-2.5 font-sans">
               {participants && participants.length > 0 ? (
                 participants.map((p, idx) => (
-                  <div key={idx} className="flex items-center space-x-2 text-slate-300">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span className="font-medium text-xs">{p.username}</span>
+                  <div key={idx} className="flex items-center justify-between text-slate-300">
+                    <div className="flex items-center space-x-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span className="font-medium text-xs">
+                        {p.username} {p.socketId === mySocketId ? "(You)" : ""}
+                      </span>
+                    </div>
+                    {isHost && p.socketId !== mySocketId && onTogglePermission && (
+                      <button 
+                        onClick={() => onTogglePermission(p.socketId, !!p.isReadOnly)}
+                        className={`text-[10px] px-2.5 py-1 rounded-lg transition font-medium border ${
+                          p.isReadOnly 
+                            ? 'bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30' 
+                            : 'bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30'
+                        }`}
+                      >
+                        {p.isReadOnly ? '🔒 Locked (Read Only)' : '🔓 Allowed (Write)'}
+                      </button>
+                    )}
                   </div>
                 ))
               ) : (
-                <span className="text-slate-505 italic text-xs">No active collaborators.</span>
+                <span className="text-slate-500 italic text-xs">No active collaborators.</span>
               )}
             </div>
           </div>
@@ -76,7 +104,7 @@ const RoomDetailsModal: React.FC<Props> = ({
             onClick={() => {
               navigate("/collab");
             }}
-            className="bg-red-600 hover:bg-red-500 px-4 py-2 flex items-center space-x-2 text-white text-xs font-semibold rounded-xl transition shadow-lg shadow-red-555/10"
+            className="bg-red-600 hover:bg-red-500 px-4 py-2 flex items-center space-x-2 text-white text-xs font-semibold rounded-xl transition shadow-lg shadow-red-500/10"
           >
             <span>Leave Room</span>
             <ImExit size={12} />

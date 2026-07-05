@@ -8,6 +8,7 @@ import RoomDetailsModal from "../components/RoomDetailsModal";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import useAxios from "../hooks/useAxios";
 import useRoomService from "../hooks/useRoom";
+import JSZip from "jszip";
 
 import { IRoom } from "../types/room";
 import { initSocket } from "../sockets/initSocket";
@@ -19,6 +20,7 @@ interface Participant {
   socketId: string;
   lineNumber?: number;
   activeFile?: string;
+  isReadOnly?: boolean;
 }
 
 interface ISandboxFile {
@@ -92,6 +94,126 @@ int main()
 `
 };
 
+const buildFileTree = (fileList: ISandboxFile[]) => {
+  const root = { files: [] as any[], folders: {} as { [key: string]: any } };
+  fileList.forEach((file, index) => {
+    const parts = file.name.split('/');
+    let current = root;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i];
+      if (!current.folders[part]) {
+        current.folders[part] = { files: [], folders: {} };
+      }
+      current = current.folders[part];
+    }
+    current.files.push({ file, originalIndex: index });
+  });
+  return root;
+};
+
+interface FileTreeProps {
+  node: any;
+  depth?: number;
+  activeFileIndex: number;
+  handleSelectFile: (index: number) => void;
+  handleDeleteFile: (fileName: string, e: React.MouseEvent) => void;
+  files: ISandboxFile[];
+  participants: Participant[];
+  usernameMe?: string;
+  isReadOnly: boolean;
+}
+
+const FileTree: React.FC<FileTreeProps> = ({
+  node,
+  depth = 0,
+  activeFileIndex,
+  handleSelectFile,
+  handleDeleteFile,
+  files,
+  participants,
+  usernameMe,
+  isReadOnly
+}) => {
+  const [expandedFolders, setExpandedFolders] = useState<{ [key: string]: boolean }>({});
+
+  const toggleFolder = (folderName: string) => {
+    setExpandedFolders(prev => ({ ...prev, [folderName]: !prev[folderName] }));
+  };
+
+  return (
+    <div className="space-y-1">
+      {Object.keys(node.folders).map((folderName) => {
+        const isExpanded = !!expandedFolders[folderName];
+        return (
+          <div key={folderName} className="select-none">
+            <div 
+              onClick={() => toggleFolder(folderName)}
+              className="flex items-center space-x-2 px-3 py-1.5 hover:bg-slate-800 rounded-lg cursor-pointer text-xs font-semibold text-slate-400 transition"
+              style={{ paddingLeft: `${(depth * 12) + 12}px` }}
+            >
+              <span>{isExpanded ? "📂" : "📁"}</span>
+              <span className="truncate">{folderName}</span>
+            </div>
+            {isExpanded && (
+              <FileTree 
+                node={node.folders[folderName]} 
+                depth={depth + 1} 
+                activeFileIndex={activeFileIndex}
+                handleSelectFile={handleSelectFile}
+                handleDeleteFile={handleDeleteFile}
+                files={files}
+                participants={participants}
+                usernameMe={usernameMe}
+                isReadOnly={isReadOnly}
+              />
+            )}
+          </div>
+        );
+      })}
+      {node.files.map(({ file, originalIndex }: any) => {
+        const isSelected = originalIndex === activeFileIndex;
+        const remoteViewers = participants.filter(p => p.activeFile === file.name && p.username !== usernameMe);
+        return (
+          <div
+            key={file.name}
+            onClick={() => handleSelectFile(originalIndex)}
+            className={`group flex items-center justify-between px-3 py-1.5 rounded-lg cursor-pointer text-xs font-medium transition ${
+              isSelected ? "bg-indigo-600 text-white" : "text-slate-355 hover:bg-slate-800 hover:text-white"
+            }`}
+            style={{ paddingLeft: `${(depth * 12) + 12}px` }}
+          >
+            <div className="flex items-center space-x-2 overflow-hidden truncate">
+              <span>📄</span>
+              <span className="truncate">{file.name.split('/').pop()}</span>
+              {remoteViewers.length > 0 && (
+                <span className="flex space-x-0.5 ml-1.5">
+                  {remoteViewers.map((rv, rIdx) => (
+                    <span 
+                      key={rIdx} 
+                      title={`${rv.username} is viewing this file`}
+                      className="w-3.5 h-3.5 bg-emerald-500 text-white rounded-full flex items-center justify-center text-[7px] font-bold"
+                    >
+                      {rv.username.charAt(0).toUpperCase()}
+                    </span>
+                  ))}
+                </span>
+              )}
+            </div>
+            {files.length > 1 && !isReadOnly && (
+              <button 
+                onClick={(e) => handleDeleteFile(file.name, e)}
+                className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 text-[10px] p-0.5 transition"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const CollaborativeSandBox: React.FC = () => {
   const [output, setOutput] = useState<string>("");
   const [running, setRunning] = useState<boolean>(false);
@@ -103,7 +225,7 @@ const CollaborativeSandBox: React.FC = () => {
   const [isPendingApproval, setIsPendingApproval] = useState<boolean>(false);
   const [joinRequests, setJoinRequests] = useState<{ username: string; userId: string; socketId: string }[]>([]);
   
-  // Stdin, Multi-file & Chat states
+  // Stdin, Multi-file, Chat, Comments & Permissions states
   const [files, setFiles] = useState<ISandboxFile[]>([
     { name: "main.js", code: LANGUAGE_TEMPLATES.javascript, language: "javascript" }
   ]);
@@ -114,11 +236,17 @@ const CollaborativeSandBox: React.FC = () => {
   const [fontSize, setFontSize] = useState<string>("16");
   
   const [stdinInput, setStdinInput] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"output" | "stdin" | "chat">("output");
+  const [activeTab, setActiveTab] = useState<"output" | "stdin" | "chat" | "comments">("output");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatText, setChatText] = useState<string>("");
   const [newFileName, setNewFileName] = useState<string>( "");
   const [showNewFileForm, setShowNewFileForm] = useState<boolean>(false);
+
+  // Advanced collaborative states
+  const [isReadOnly, setIsReadOnly] = useState<boolean>(false);
+  const [comments, setComments] = useState<{ id: string; file: string; line: number; text: string; username: string; time: string }[]>([]);
+  const [commentText, setCommentText] = useState<string>("");
+  const [commentLine, setCommentLine] = useState<number>(1);
 
   const user = useAppSelector((state) => state.auth.user);
   const userId = user?._id || "";
@@ -401,6 +529,21 @@ const CollaborativeSandBox: React.FC = () => {
         socketRef.current.on("chat-message", ({ message }: any) => {
           setChatMessages(prev => [...prev, message]);
         });
+
+        // Remote Permission Toggled Listener
+        socketRef.current.on("permission-toggled", ({ isReadOnly }: any) => {
+          setIsReadOnly(isReadOnly);
+          if (isReadOnly) {
+            notify("The host has set your access to read-only.", false);
+          } else {
+            notify("The host has restored your write access.", true);
+          }
+        });
+
+        // Remote Comment Received Listener
+        socketRef.current.on("comment-received", ({ comment }: any) => {
+          setComments(prev => [...prev, comment]);
+        });
       } catch (error: any) {
         notify(error.message, false);
         setTimeout(() => { navigate("/signin"); }, 1000);
@@ -427,11 +570,110 @@ const CollaborativeSandBox: React.FC = () => {
         socketRef.current.off("join-request");
         socketRef.current.off("join-approved");
         socketRef.current.off("join-rejected");
+        socketRef.current.off("permission-toggled");
+        socketRef.current.off("comment-received");
       }
       // Clean styles
       Object.values(styleTagsRef.current).forEach(tag => tag.remove());
     };
   }, []);
+
+  const handleTogglePermission = (socketId: string, currentReadOnly: boolean) => {
+    if (socketRef.current) {
+      socketRef.current.emit("toggle-permission", { targetSocketId: socketId, isReadOnly: !currentReadOnly });
+      setParticipants(prev => prev.map(p => p.socketId === socketId ? { ...p, isReadOnly: !currentReadOnly } : p));
+      notify(currentReadOnly ? "Restored write permissions" : "Locked permissions to read-only", true);
+    }
+  };
+
+  const handleJumpToCollaborator = (socketId: string) => {
+    const participant = participants.find(p => p.socketId === socketId);
+    if (participant && participant.lineNumber && editorRef.current) {
+      editorRef.current.revealLineInCenter(participant.lineNumber);
+      editorRef.current.setPosition({ lineNumber: participant.lineNumber, column: 1 });
+      editorRef.current.focus();
+      notify(`Jumped to ${participant.username}'s cursor`, true);
+    } else {
+      notify("Collaborator is not active on any line yet", false);
+    }
+  };
+
+  const handleAddComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commentText || commentText.trim() === "") return;
+    if (!activeFile) return;
+
+    const newComment = {
+      id: Math.random().toString(36).substring(7),
+      file: activeFile.name,
+      line: commentLine,
+      text: commentText.trim(),
+      username: user?.user_name || "Coder",
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setComments(prev => [...prev, newComment]);
+    if (socketRef.current) {
+      socketRef.current.emit("new-comment", { roomId, comment: newComment });
+    }
+    setCommentText("");
+    notify("Comment added!", true);
+  };
+
+  const handleDropFiles = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (isReadOnly) return;
+    const droppedFiles = e.dataTransfer.files;
+    if (droppedFiles.length === 0) return;
+
+    for (let i = 0; i < droppedFiles.length; i++) {
+      const file = droppedFiles[i];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const fileContent = event.target?.result as string;
+        const name = file.name;
+        if (files.find(f => f.name === name)) {
+          notify(`File ${name} already exists!`, false);
+          return;
+        }
+
+        let lang = "javascript";
+        if (name.endsWith(".py")) lang = "python";
+        else if (name.endsWith(".java")) lang = "java";
+        else if (name.endsWith(".cpp")) lang = "cpp";
+        else if (name.endsWith(".c")) lang = "c";
+
+        const newFile: ISandboxFile = { name, code: fileContent, language: lang };
+        setFiles(prev => [...prev, newFile]);
+        if (socketRef.current) {
+          socketRef.current.emit("file-create", { roomId, file: newFile });
+        }
+        notify(`Imported file ${name}`, true);
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const handleDownloadZIP = async () => {
+    const zip = new JSZip();
+    files.forEach(file => {
+      zip.file(file.name, file.code);
+    });
+    try {
+      const content = await zip.generateAsync({ type: "blob" });
+      const url = window.URL.createObjectURL(content);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${room?.name || "project"}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      notify("ZIP download started!", true);
+    } catch (err: any) {
+      notify("Failed to generate ZIP: " + err.message, false);
+    }
+  };
 
   const handleApproveJoin = (requesterSocketId: string, name: string) => {
     if (socketRef.current && room) {
@@ -637,7 +879,8 @@ const CollaborativeSandBox: React.FC = () => {
   const editorOptions = {
     selectOnLineNumbers: true,
     fontSize: Number(fontSize),
-    minimap: { enabled: false }
+    minimap: { enabled: false },
+    readOnly: isReadOnly
   };
 
   return (
@@ -686,6 +929,9 @@ const CollaborativeSandBox: React.FC = () => {
           roomPassword={room?.password || ""}
           setShowModal={setShowModal}
           participants={participants}
+          isHost={user?._id === room?.author}
+          onTogglePermission={handleTogglePermission}
+          mySocketId={socketRef.current?.id}
         />
       ) : (
         <></>
@@ -705,28 +951,36 @@ const CollaborativeSandBox: React.FC = () => {
         room={room}
         participants={participants}
         setShowModal={setShowModal}
+        onJumpToCollaborator={handleJumpToCollaborator}
+        isReadOnly={isReadOnly}
       />
 
       <div className="flex flex-1 overflow-hidden bg-slate-950">
         
         {/* Left Workspace File tree sidebar */}
-        <div className="w-[220px] bg-slate-900 border-r border-slate-800 flex flex-col select-none">
+        <div 
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleDropFiles}
+          className="w-[220px] bg-slate-900 border-r border-slate-800 flex flex-col select-none"
+        >
           <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/60">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Workspace Files</span>
-            <button 
-              onClick={() => setShowNewFileForm(!showNewFileForm)} 
-              className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded font-semibold transition"
-            >
-              + Add
-            </button>
+            {!isReadOnly && (
+              <button 
+                onClick={() => setShowNewFileForm(!showNewFileForm)} 
+                className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded font-semibold transition"
+              >
+                + Add
+              </button>
+            )}
           </div>
 
-          {showNewFileForm && (
+          {showNewFileForm && !isReadOnly && (
             <form onSubmit={handleCreateFile} className="p-3 bg-slate-950 border-b border-slate-800 space-y-2">
               <input
                 value={newFileName}
                 onChange={(e) => setNewFileName(e.target.value)}
-                placeholder="filename.py"
+                placeholder="src/utils/math.py"
                 className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500"
                 required
               />
@@ -738,46 +992,25 @@ const CollaborativeSandBox: React.FC = () => {
           )}
 
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {files.map((file, idx) => {
-              const isSelected = idx === activeFileIndex;
-              const remoteViewers = participants.filter(p => p.activeFile === file.name && p.username !== user?.user_name);
-              
-              return (
-                <div
-                  key={idx}
-                  onClick={() => handleSelectFile(idx)}
-                  className={`group flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-sm font-medium transition ${
-                    isSelected ? "bg-indigo-600 text-white" : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                  }`}
-                >
-                  <div className="flex items-center space-x-2 overflow-hidden truncate">
-                    <span className="text-xs">📄</span>
-                    <span className="truncate">{file.name}</span>
-                    {remoteViewers.length > 0 && (
-                      <span className="flex space-x-1">
-                        {remoteViewers.map((rv, rIdx) => (
-                          <span 
-                            key={rIdx} 
-                            title={`${rv.username} is viewing this file`}
-                            className="w-4 h-4 bg-emerald-500 text-white rounded-full flex items-center justify-center text-[7px] font-bold"
-                          >
-                            {rv.username.charAt(0).toUpperCase()}
-                          </span>
-                        ))}
-                      </span>
-                    )}
-                  </div>
-                  {files.length > 1 && (
-                    <button 
-                      onClick={(e) => handleDeleteFile(file.name, e)}
-                      className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 text-xs transition"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+            <FileTree
+              node={buildFileTree(files)}
+              activeFileIndex={activeFileIndex}
+              handleSelectFile={handleSelectFile}
+              handleDeleteFile={handleDeleteFile}
+              files={files}
+              participants={participants}
+              usernameMe={user?.user_name}
+              isReadOnly={isReadOnly}
+            />
+          </div>
+
+          <div className="p-3 border-t border-slate-800 bg-slate-900/50 flex flex-col space-y-2">
+            <button
+              onClick={handleDownloadZIP}
+              className="w-full bg-slate-800 hover:bg-indigo-600 hover:text-white text-slate-300 text-xs font-semibold py-2 rounded-lg transition duration-200 border border-slate-700 hover:border-indigo-500 flex items-center justify-center space-x-1.5 shadow-sm"
+            >
+              <span>📦 Download ZIP</span>
+            </button>
           </div>
         </div>
 
@@ -812,14 +1045,14 @@ const CollaborativeSandBox: React.FC = () => {
         <div className="w-[320px] bg-slate-900 flex flex-col select-none border-l border-slate-800">
           
           {/* Tab Selection */}
-          <div className="flex border-b border-slate-800 text-xs font-bold bg-slate-900">
+          <div className="flex border-b border-slate-800 text-[10px] md:text-xs font-bold bg-slate-900">
             <button
               onClick={() => setActiveTab("output")}
               className={`flex-1 py-3 text-center border-b-2 transition ${
                 activeTab === "output" ? "border-indigo-500 text-white bg-slate-850" : "border-transparent text-slate-400 hover:text-white"
               }`}
             >
-              Console Output
+              Console
             </button>
             <button
               onClick={() => setActiveTab("stdin")}
@@ -827,7 +1060,7 @@ const CollaborativeSandBox: React.FC = () => {
                 activeTab === "stdin" ? "border-indigo-500 text-white bg-slate-850" : "border-transparent text-slate-400 hover:text-white"
               }`}
             >
-              Input (stdin)
+              Input
             </button>
             <button
               onClick={() => setActiveTab("chat")}
@@ -835,7 +1068,15 @@ const CollaborativeSandBox: React.FC = () => {
                 activeTab === "chat" ? "border-indigo-500 text-white bg-slate-850" : "border-transparent text-slate-400 hover:text-white"
               }`}
             >
-              Room Chat
+              Chat
+            </button>
+            <button
+              onClick={() => setActiveTab("comments")}
+              className={`flex-1 py-3 text-center border-b-2 transition relative ${
+                activeTab === "comments" ? "border-indigo-500 text-white bg-slate-850" : "border-transparent text-slate-400 hover:text-white"
+              }`}
+            >
+              Review
             </button>
           </div>
 
@@ -898,6 +1139,49 @@ const CollaborativeSandBox: React.FC = () => {
                     className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                   />
                   <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 rounded-xl text-xs transition">Send</button>
+                </form>
+              </div>
+            )}
+
+            {activeTab === "comments" && (
+              <div className="flex-grow flex flex-col h-full overflow-hidden">
+                <div className="flex-1 p-4 overflow-y-auto space-y-3">
+                  {comments.length === 0 ? (
+                    <p className="text-xs text-slate-600 italic text-center pt-10">No code comments yet. Add one below!</p>
+                  ) : (
+                    comments.map((comment) => (
+                      <div key={comment.id} className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2">
+                        <div className="flex justify-between items-center text-[10px] text-slate-400 font-semibold">
+                          <span>{comment.username} • {comment.time}</span>
+                          <span className="bg-indigo-600/35 text-indigo-300 border border-indigo-500/20 px-1.5 py-0.5 rounded-md">
+                            {comment.file.split('/').pop()} : Line {comment.line}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-200 leading-relaxed font-sans">{comment.text}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <form onSubmit={handleAddComment} className="p-3 bg-slate-900 border-t border-slate-800 space-y-2.5 flex flex-col">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Line Number:</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={commentLine}
+                      onChange={(e) => setCommentLine(Math.max(1, Number(e.target.value)))}
+                      className="w-16 bg-slate-950 border border-slate-850 rounded-lg px-2 py-1 text-xs text-white focus:outline-none text-center"
+                    />
+                  </div>
+                  <div className="flex space-x-2">
+                    <input
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      placeholder="Comment on this line..."
+                      className="flex-1 bg-slate-950 border border-slate-850 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    />
+                    <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3.5 rounded-xl text-xs transition">Add</button>
+                  </div>
                 </form>
               </div>
             )}

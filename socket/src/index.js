@@ -99,6 +99,14 @@ io.on("connection", (socket) => {
     socket.on("reject-join", ({ requesterSocketId }) => {
        io.to(requesterSocketId).emit("join-rejected");
     })
+
+    socket.on("toggle-permission", ({ targetSocketId, isReadOnly }) => {
+       io.to(targetSocketId).emit("permission-toggled", { isReadOnly });
+    })
+
+    socket.on("new-comment", ({ roomId, comment }) => {
+       socket.in(roomId).emit("comment-received", { comment });
+    })
   
 
     socket.on("disconnecting",()=>{
